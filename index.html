@@ -36,7 +36,7 @@
 <button class="mod" onclick="resetGame()">🔄 Reset Round</button>
 <button class="lock" onclick="toggleLock()">🔒 Lock / Unlock Buttons</button>
 
-<!-- Firebase compat scripts -->
+<!-- Firebase 8 compat scripts -->
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
@@ -57,10 +57,11 @@
   var db = firebase.database();
   var userId = Math.random().toString(36).substring(2);
 
+  // --- Game Functions ---
   function press(side) {
     var name = document.getElementById("name").value.trim();
     if (!name) return alert("Enter your name first!");
-    db.ref("lock").once("value", snap => {
+    db.ref("lock").once("value").then(snap => {
       if (snap.val()) return;
       db.ref("players/" + side).transaction(current => {
         if (current === null) return { id: userId, name };
@@ -86,7 +87,7 @@
   }
 
   function startTimer() {
-    const timerRef = db.ref("time");
+    var timerRef = db.ref("time");
     timerRef.set(60);
     var interval = setInterval(() => {
       timerRef.transaction(t => {
@@ -99,6 +100,7 @@
     }, 1000);
   }
 
+  // --- Listeners ---
   db.ref("players").on("value", snap => {
     var p = snap.val() || {};
     if (p.agree && p.disagree) {
