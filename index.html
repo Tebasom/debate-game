@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Debate Duel</title>
+  <title>Debate Duel - Offline</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body {
@@ -54,95 +54,62 @@
 
 <h2>Moderator Controls</h2>
 <button class="mod" onclick="resetGame()">🔄 Reset Round</button>
-<button class="lock" onclick="toggleLock()">🔒 Lock / Unlock Buttons</button>
 
-<script type="module">
-  // Import the correct Firebase SDK
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-  import { getDatabase, ref, set, get, onValue, runTransaction } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
-
-  // 🔥 PASTE YOUR FIREBASE CONFIG HERE
-  const firebaseConfig = {
-    apiKey: "PASTE_YOURS_HERE",
-    authDomain: "PASTE_YOURS_HERE",
-    databaseURL: "PASTE_YOURS_HERE",
-    projectId: "PASTE_YOURS_HERE",
-    storageBucket: "PASTE_YOURS_HERE",
-    messagingSenderId: "PASTE_YOURS_HERE",
-    appId: "PASTE_YOURS_HERE"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  const userId = Math.random().toString(36).substring(2);
+<script>
+  let players = { agree: null, disagree: null };
+  let votes = { agree: 0, disagree: 0 };
+  let lock = false;
+  let timer = 0;
+  let timerInterval;
 
   function press(side) {
     const name = document.getElementById("name").value.trim();
     if (!name) return alert("Enter your name first!");
-    const lockRef = ref(db, 'lock');
-    get(lockRef).then(snap => {
-      if (snap.val()) return;
-      const playerRef = ref(db, 'players/' + side);
-      runTransaction(playerRef, current => {
-        if (current === null) return { id: userId, name };
-        return;
-      });
-    });
+    if (lock) return;
+    if (!players[side]) {
+      players[side] = { name };
+      updateMatchup();
+      if (players.agree && players.disagree) {
+        startTimer(60);
+      }
+    }
   }
 
   function vote(side) {
-    const voteRef = ref(db, 'votes/' + side);
-    runTransaction(voteRef, v => (v || 0) + 1);
+    votes[side]++;
+    updateVotes();
+  }
+
+  function updateMatchup() {
+    const matchup = (players.agree && players.disagree)
+      ? `🔵 ${players.agree.name} VS 🔴 ${players.disagree.name}`
+      : '';
+    document.getElementById("matchup").innerText = matchup;
+  }
+
+  function updateVotes() {
+    document.getElementById("votes").innerText = `Votes — 🔵 ${votes.agree} | 🔴 ${votes.disagree}`;
   }
 
   function resetGame() {
-    set(ref(db, '/'), {
-      players: {},
-      votes: {},
-      lock: false,
-      time: 60
-    });
+    players = { agree: null, disagree: null };
+    votes = { agree: 0, disagree: 0 };
+    lock = false;
+    clearInterval(timerInterval);
+    document.getElementById("timer").innerText = '⏳ Waiting...';
+    updateMatchup();
+    updateVotes();
   }
 
-  function toggleLock() {
-    const lockRef = ref(db, 'lock');
-    runTransaction(lockRef, v => !v);
-  }
-
-  function startTimer() {
-    const timerRef = ref(db, 'time');
-    set(timerRef, 60);
-    const interval = setInterval(() => {
-      runTransaction(timerRef, t => {
-        if (t <= 0) {
-          clearInterval(interval);
-          return 0;
-        }
-        return t - 1;
-      });
+  function startTimer(seconds) {
+    timer = seconds;
+    document.getElementById("timer").innerText = `⏱ ${timer}s remaining`;
+    timerInterval = setInterval(() => {
+      timer--;
+      document.getElementById("timer").innerText = `⏱ ${timer}s remaining`;
+      if (timer <= 0) clearInterval(timerInterval);
     }, 1000);
   }
-
-  const playersRef = ref(db, 'players');
-  onValue(playersRef, snap => {
-    const p = snap.val() || {};
-    if (p.agree && p.disagree) {
-      document.getElementById("matchup").innerText = `🔵 ${p.agree.name} VS 🔴 ${p.disagree.name}`;
-      startTimer();
-    }
-  });
-
-  const timeRef = ref(db, 'time');
-  onValue(timeRef, snap => {
-    const t = snap.val();
-    if (t !== null) document.getElementById("timer").innerText = `⏱ ${t}s remaining`;
-  });
-
-  const votesRef = ref(db, 'votes');
-  onValue(votesRef, snap => {
-    const v = snap.val() || {};
-    document.getElementById("votes").innerText = `Votes — 🔵 ${v.agree || 0} | 🔴 ${v.disagree || 0}`;
-  });
 </script>
 
 </body>
