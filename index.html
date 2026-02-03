@@ -4,28 +4,9 @@
   <title>Debate Duel</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body {
-      background: #111;
-      color: white;
-      font-family: Arial;
-      text-align: center;
-    }
-    input {
-      padding: 12px;
-      font-size: 18px;
-      width: 80%;
-      margin: 10px;
-      border-radius: 8px;
-      border: none;
-    }
-    button {
-      width: 90%;
-      padding: 18px;
-      font-size: 22px;
-      margin: 8px;
-      border-radius: 12px;
-      border: none;
-    }
+    body { background: #111; color: white; font-family: Arial; text-align: center; }
+    input { padding: 12px; font-size: 18px; width: 80%; margin: 10px; border-radius: 8px; border: none; }
+    button { width: 90%; padding: 18px; font-size: 22px; margin: 8px; border-radius: 12px; border: none; }
     .agree { background: #007bff; }
     .disagree { background: #dc3545; }
     .vote { background: #555; }
@@ -51,18 +32,17 @@
 <h3 id="votes"></h3>
 
 <hr>
-
 <h2>Moderator Controls</h2>
 <button class="mod" onclick="resetGame()">🔄 Reset Round</button>
 <button class="lock" onclick="toggleLock()">🔒 Lock / Unlock Buttons</button>
 
-<script type="module">
-  // Import Firebase modules
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-  import { getDatabase, ref, set, get, onValue, runTransaction } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+<!-- Firebase compat scripts -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
+<script>
   // 🔥 Your Firebase config
-  const firebaseConfig = {
+  var firebaseConfig = {
     apiKey: "AIzaSyBRoK6bv-4dt_uqLTK_-klVpw-XoNze64w",
     authDomain: "debate-game-cf108.firebaseapp.com",
     databaseURL: "https://debate-game-cf108-default-rtdb.firebaseio.com",
@@ -73,31 +53,27 @@
     measurementId: "G-Q1JFS38741"
   };
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  const userId = Math.random().toString(36).substring(2);
+  firebase.initializeApp(firebaseConfig);
+  var db = firebase.database();
+  var userId = Math.random().toString(36).substring(2);
 
   function press(side) {
-    const name = document.getElementById("name").value.trim();
+    var name = document.getElementById("name").value.trim();
     if (!name) return alert("Enter your name first!");
-    const lockRef = ref(db, 'lock');
-    get(lockRef).then(snap => {
+    db.ref("lock").once("value", snap => {
       if (snap.val()) return;
-      const playerRef = ref(db, 'players/' + side);
-      runTransaction(playerRef, current => {
+      db.ref("players/" + side).transaction(current => {
         if (current === null) return { id: userId, name };
-        return;
       });
     });
   }
 
   function vote(side) {
-    const voteRef = ref(db, 'votes/' + side);
-    runTransaction(voteRef, v => (v || 0) + 1);
+    db.ref("votes/" + side).transaction(v => (v || 0) + 1);
   }
 
   function resetGame() {
-    set(ref(db, '/'), {
+    db.ref().set({
       players: {},
       votes: {},
       lock: false,
@@ -106,15 +82,14 @@
   }
 
   function toggleLock() {
-    const lockRef = ref(db, 'lock');
-    runTransaction(lockRef, v => !v);
+    db.ref("lock").transaction(v => !v);
   }
 
   function startTimer() {
-    const timerRef = ref(db, 'time');
-    set(timerRef, 60);
-    const interval = setInterval(() => {
-      runTransaction(timerRef, t => {
+    const timerRef = db.ref("time");
+    timerRef.set(60);
+    var interval = setInterval(() => {
+      timerRef.transaction(t => {
         if (t <= 0) {
           clearInterval(interval);
           return 0;
@@ -124,24 +99,21 @@
     }, 1000);
   }
 
-  const playersRef = ref(db, 'players');
-  onValue(playersRef, snap => {
-    const p = snap.val() || {};
+  db.ref("players").on("value", snap => {
+    var p = snap.val() || {};
     if (p.agree && p.disagree) {
       document.getElementById("matchup").innerText = `🔵 ${p.agree.name} VS 🔴 ${p.disagree.name}`;
       startTimer();
     }
   });
 
-  const timeRef = ref(db, 'time');
-  onValue(timeRef, snap => {
-    const t = snap.val();
+  db.ref("time").on("value", snap => {
+    var t = snap.val();
     if (t !== null) document.getElementById("timer").innerText = `⏱ ${t}s remaining`;
   });
 
-  const votesRef = ref(db, 'votes');
-  onValue(votesRef, snap => {
-    const v = snap.val() || {};
+  db.ref("votes").on("value", snap => {
+    var v = snap.val() || {};
     document.getElementById("votes").innerText = `Votes — 🔵 ${v.agree || 0} | 🔴 ${v.disagree || 0}`;
   });
 </script>
