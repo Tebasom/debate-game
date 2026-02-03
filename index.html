@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Debate Duel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      background: #111;
+      color: white;
+      font-family: Arial;
+      text-align: center;
+    }
+    input {
+      padding: 12px;
+      font-size: 18px;
+      width: 80%;
+      margin: 10px;
+      border-radius: 8px;
+      border: none;
+    }
+    button {
+      width: 90%;
+      padding: 18px;
+      font-size: 22px;
+      margin: 8px;
+      border-radius: 12px;
+      border: none;
+    }
+    .agree { background: #007bff; }
+    .disagree { background: #dc3545; }
+    .vote { background: #555; }
+    .mod { background: #28a745; }
+    .lock { background: #ffc107; color: black; }
+  </style>
+</head>
+<body>
+
+<h1 id="question">Resolved: Phones should be banned in schools</h1>
+
+<input id="name" placeholder="Enter your name" />
+
+<button class="agree" onclick="press('agree')">🔵 AGREE</button>
+<button class="disagree" onclick="press('disagree')">🔴 DISAGREE</button>
+
+<h2 id="matchup"></h2>
+<h2 id="timer">⏳ Waiting...</h2>
+
+<button class="vote" onclick="vote('agree')">Vote Out 🔵 Agree</button>
+<button class="vote" onclick="vote('disagree')">Vote Out 🔴 Disagree</button>
+
+<h3 id="votes"></h3>
+
+<hr>
+
+<h2>Moderator Controls</h2>
+<button class="mod" onclick="resetGame()">🔄 Reset Round</button>
+<button class="lock" onclick="toggleLock()">🔒 Lock / Unlock Buttons</button>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+<script>
+  var firebaseConfig = {
+    /* PASTE YOUR FIREBASE CONFIG HERE */
+  };
+  firebase.initializeApp(firebaseConfig);
+  var db = firebase.database();
+
+  const userId = Math.random().toString(36).substring(2);
+
+  function press(side) {
+    const name = document.getElementById("name").value.trim();
+    if (!name) return alert("Enter your name first!");
+
+    db.ref("lock").once("value", snap => {
+      if (snap.val()) return;
+
+      db.ref("players/" + side).transaction(current => {
+        if (current === null) return { id: userId, name };
+        return;
+      });
+    });
+  }
+
+  function vote(side) {
+    db.ref("votes/" + side).transaction(v => (v || 0) + 1);
+  }
+
+  function resetGame() {
+    db.ref().set({
+      players: {},
+      votes: {},
+      lock: false,
+      time: 60
+    });
+  }
+
+  function toggleLock() {
+    db.ref("lock").transaction(v => !v);
+  }
+
+  function startTimer() {
+    const timerRef = db.ref("time");
+    timerRef.set(60);
+    const interval = setInterval(() => {
+      timerRef.transaction(t => {
+        if (t <= 0) {
+          clearInterval(interval);
+          return 0;
+        }
+        return t - 1;
+      });
+    }, 1000);
+  }
+
+  db.ref("players").on("value", snap => {
+    const p = snap.val() || {};
+    if (p.agree && p.disagree) {
+      document.getElementById("matchup").innerText =
+        `🔵 ${p.agree.name} VS 🔴 ${p.disagree.name}`;
+      startTimer();
+    }
+  });
+
+  db.ref("time").on("value", snap => {
+    const t = snap.val();
+    if (t !== null)
+      document.getElementById("timer").innerText = `⏱ ${t}s remaining`;
+  });
+
+  db.ref("votes").on("value", snap => {
+    const v = snap.val() || {};
+    document.getElementById("votes").innerText =
+      `Votes — 🔵 ${v.agree || 0} | 🔴 ${v.disagree || 0}`;
+  });
+</script>
+
+</body>
+</html>
